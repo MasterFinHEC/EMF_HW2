@@ -48,9 +48,10 @@ SimPrices=randomwalks(N,T);
 % 3.
 % AR(1) process
 
-betas=zeros(N,1);
+betas=zeros(N,1); % Setting matrices for AR(1) process
 Test_betas=zeros(N,1);
 
+% Computing AR(1) process
 for n=1:N
     [parameters, LL, errors, sd] = armaxfilter(SimPrices(:,n),1,1);
     beta=parameters(2);
@@ -60,5 +61,26 @@ for n=1:N
 end
 
 % 4.
-Test_betas=sort(Test_betas);
+
+Test_betas=sort(Test_betas); %Sort the betas test
+
+% 5.
+DFvalues_1=zeros(N,1); %setting matrices for critical values
+DFvalues_5=zeros(N,1);
+DFvalues_10=zeros(N,1);
+
+% Computing Dickey-Fuller test
+for n=1:N
+    [ADFstat, ADFpval, criticalvalue] = augdf(SimPrices(:,n),1,0);
+    DFvalues_1(n)=criticalvalue(1);
+    DFvalues_5(n)=criticalvalue(2);
+    DFvalues_10(n)=criticalvalue(3);
+end
+
+% Computing mean for each critical value
+mean_1=mean(DFvalues_1);
+mean_5=mean(DFvalues_5);
+mean_10=mean(DFvalues_10);
+
+
 Plots
