@@ -60,10 +60,10 @@ sds=zeros(N,1);
 
 disp('Run regression')
 for n=1:N
-    Sim_OLS=fitlm(SimPrices(1:end-1,n),Delta_SimP(:,n));
-    tStat_betas(n)=Sim_OLS.Coefficients.tStat(2);
-    betas(n)=Sim_OLS.Coefficients.Estimate(2);
-    sds(n)=Sim_OLS.Coefficients.SE(2);
+    [tStat,beta,sd,~]=regression(SimPrices(1:end-1,n),Delta_SimP(:,n));
+    tStat_betas(n)=tStat;
+    betas(n)=beta;
+    sds(n)=sd;
 end
 
 %% 4.
@@ -81,8 +81,8 @@ CriticalValues=array2table(CriticalValues,'VariableNames',{'One','Five','Ten'},'
 filename = 'Results/CriticalValues.xlsx';
 writetable(CriticalValues,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
 
-%% Normal distribution with tStat_betas parameters
 
+%Mean of tStat
 meantStat=mean(tStat_betas);
 
 %% 2.b Testing non-stationarity
@@ -114,14 +114,14 @@ DivUK=price(:,3).*((price(:,4)/100)/12);
 DivlogUS=log(DivUS(1:end-1));
 DivlogUK=log(DivUK(1:end-1));
 
-deltaUS.d=diff(log(DivUS));
-deltaUK.d=diff(log(DivUK));
+deltaUS_d=diff(log(DivUS));
+deltaUK_d=diff(log(DivUK));
 
 disp('Run d regression')
 
 % Doing a regression
-OLS_US_d=fitlm(DivlogUS,deltaUS.d);
-OLS_UK_d=fitlm(DivlogUK,deltaUK.d);
+OLS_US_d=fitlm(DivlogUS,deltaUS_d);
+OLS_UK_d=fitlm(DivlogUK,deltaUK_d);
 
 US_Est_d=table2array(OLS_US_d.Coefficients(2,1));
 UK_Est_d=table2array(OLS_UK_d.Coefficients(2,1));
@@ -166,9 +166,91 @@ Power_of_test=array2table(Power_of_test,'VariableNames',{'360','368','100','0.8'
 filename = 'Results/PowerOfTest.xlsx';
 writetable(Power_of_test,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
 
-%% Cointegration test
+%% 3. Cointegration test
 
 
+%% 3.a
+
+% 1.
+N=10000;
+T=size(date,1);
+SimP=zeros(T,N);
+SimD=zeros(T,N);
+eps_1=normrnd(0,1,[T,N]);
+eps_2=normrnd(0,1,[T,N]);
+
+% 2.
+SimP(2:end,:)=cumsum(eps_1(2:end,:),1);
+SimD(2:end,:)=cumsum(eps_2(2:end,:),1);
+
+%% 3.
+% Regressions
+Res=zeros(T,N);
+
+disp('Run regression')
+for n=1:N
+    [~,~,~,residual]=regression(SimD(:,n),SimP(:,n));
+    Res(:,n)=residual;
+end
+
+%% 4
+% Estimate AR(1) model for residuals
+
+tStat_R=zeros(N,1);
+Delta_R=diff(Res);
+
+disp('Run regression')
+for n=1:N
+    [tStat,~,~,~]=regression(Res(1:end-1,n),Delta_R(:,n));
+    tStat_R(n)=tStat;
+end
+
+%% 5
+StStat_R=sort(tStat_R);
+
+%6
+% Computing quantiles
+
+CriticalValueR_1=quantile(tStat_R,0.01);
+CriticalValueR_5=quantile(tStat_R,0.05);
+CriticalValueR_10=quantile(tStat_R,0.1);
+CriticalValuesR=[CriticalValueR_1,CriticalValueR_5,CriticalValueR_10];
+CriticalValuesR=array2table(CriticalValuesR,'VariableNames',{'One','Five','Ten'},'RowNames',{'CriticalValues'});
+filename = 'Results/CriticalValuesR.xlsx';
+writetable(CriticalValuesR,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
+
+%% Mean of tStatR
+meantStatR=mean(tStat_R);
+
+%% 3.b
+%1 Estimating regression on US and UK market
+
+[~,~,~,US_R]=regression(DivlogUS,logUS);
+[~,~,~,UK_R]=regression(DivlogUK,logUK);
+
+%2
+
+DeltaUS_R=diff(US_R);
+DeltaUK_R=diff(UK_R);
+
+% Regressions
+[tStatUS_R,betaUS_R,sdUS_R,~]=regression(US_R(1:end-1),DeltaUS_R);
+[tStatUK_R,betaUK_R,sdUK_R,~]=regression(UK_R(1:end-1),DeltaUK_R);
+
+%% 3.c
+
+%Regressions
+X=[deltaUK.p(1:end-1),deltaUK.d(1:end-1),UK_R(1:end-1)];
+regUK_p=fitlm(X,deltaUK.p(2:end));
+regUK_d=fitlm(X,deltaUK.d(2:end));
+
+CoefUK_p=table2array(regUK_p.Coefficients(1:end,1));
+CoefUK_d=table2array(regUK_d.Coefficients(1:end,1));
+
+Coefficients=[transpose(CoefUK_p);transpose(CoefUK_d)];
+Coefficients=array2table(Coefficients,'VariableNames',{'Intercept','Coef delta p','Coef delta d','Coef res'},'RowNames',{'Prices','Dividends'});
+filename = 'Results/Coefficients.xlsx';
+writetable(Coefficients,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
 %% Plots
 disp('plotting')
 Plots

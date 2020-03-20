@@ -95,3 +95,22 @@ xlabel('x')
 ylabel('F(x)')
 legend('null hypothesis','360 days & phi 0.96','360 days & phi 0.8','100 days & phi 0.96','100 days & phi 0.8','Location','southeast','FontSize',6)
 saveas(f,'Plots/CumDistributionall.png')
+
+%% 3
+
+% Histogram of tStat of Residuals
+
+f = figure('visible','off');
+histfit(StStat_R);
+hold on
+xline(CriticalValueR_1,'color','r','Label','Critical Value 1%','LineWidth',2,'LabelHorizontalAlignment','left','LabelVerticalAlignment','top');
+hold on
+xline(meantStatR,'color','k','Label','mean','LineWidth',2,'LabelOrientation','horizontal','LabelHorizontalAlignment','right','LabelVerticalAlignment','top');
+hold on
+xline(CriticalValueR_5,'color','r','Label','Critical Value 5%','LineWidth',2,'LabelHorizontalAlignment','left','LabelVerticalAlignment','top');
+hold on
+xline(CriticalValueR_10,'color','r','Label','Critical Value 10%','LineWidth',2,'LabelHorizontalAlignment','right','LabelVerticalAlignment','top');
+title('Histogram tStats Residuals')
+xlabel('tStats')
+ylabel('Frequency')
+saveas(f,'Plots/HistogramR.png')
