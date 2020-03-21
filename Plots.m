@@ -29,7 +29,7 @@ ylabel('F(x)')
 legend('null hypothesis','360 days & phi 0.96','location','southeast')
 saveas(f,'Plots/CumDistribution360.png')
 
-%Sim368
+%% Sim368
 [a,y]=ecdf(tStat_betas);
 [g,z]=ecdf(tStat_Sim368);
 

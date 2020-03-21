@@ -91,28 +91,28 @@ meantStat=mean(tStat_betas);
 logUS=log(price(1:end-1,1));
 logUK=log(price(1:end-1,3));
 
-deltaUS.p=diff(log(price(:,1)));
-deltaUK.p=diff(log(price(:,3)));
+deltaUS_p=diff(log(price(:,1)));
+deltaUK_p=diff(log(price(:,3)));
 
 disp('Run p regression')
 % Doing regression for prices
-OLS_US_p=fitlm(logUS,deltaUS.p);
-OLS_UK_p=fitlm(logUK,deltaUK.p);
+OLS_US_p=fitlm(logUS,deltaUS_p);
+OLS_UK_p=fitlm(logUK,deltaUK_p);
 
 US_Est_p=table2array(OLS_US_p.Coefficients(2,1));
 UK_Est_p=table2array(OLS_UK_p.Coefficients(2,1));
 US_tStat_p=table2array(OLS_US_p.Coefficients(2,3));
 UK_tStat_p=table2array(OLS_UK_p.Coefficients(2,3));
 
-% Wee compute the same for the dividends
+%% Wee compute the same for the dividends
 %Computing dividends first
 
-DivUS=price(:,1).*((price(:,2)/100)/12);
-DivUK=price(:,3).*((price(:,4)/100)/12);
+DivUS=price(:,1).*(price(:,2)./100)./12;
+DivUK=price(:,3).*(price(:,4)./100)./12;
 
 % Computing log-prices
-DivlogUS=log(DivUS(1:end-1));
-DivlogUK=log(DivUK(1:end-1));
+DivlogUS=log(DivUS);
+DivlogUK=log(DivUK);
 
 deltaUS_d=diff(log(DivUS));
 deltaUK_d=diff(log(DivUK));
@@ -120,8 +120,8 @@ deltaUK_d=diff(log(DivUK));
 disp('Run d regression')
 
 % Doing a regression
-OLS_US_d=fitlm(DivlogUS,deltaUS_d);
-OLS_UK_d=fitlm(DivlogUK,deltaUK_d);
+OLS_US_d=fitlm(DivlogUS(1:end-1),deltaUS_d);
+OLS_UK_d=fitlm(DivlogUK(1:end-1),deltaUK_d);
 
 US_Est_d=table2array(OLS_US_d.Coefficients(2,1));
 UK_Est_d=table2array(OLS_UK_d.Coefficients(2,1));
@@ -144,7 +144,7 @@ x = (tStat_Sim360 <= CriticalValue_5 | tStat_Sim360 >= abs(CriticalValue_5)); % 
 Power_of_test_360 = nnz(x)/N;
 
 disp('AR(1) 368')
-% Simulates 360 days from an AR(1) with phi = 0.8
+%% Simulates 360 days from an AR(1) with phi = 0.8
 [tStat_Sim368]=ARSimulation(T,N,0.8);
 x = (tStat_Sim368 <= CriticalValue_5 | tStat_Sim368 >= abs(CriticalValue_5)); % define a vector of binary variables for test decision
 Power_of_test_368 = nnz(x)/N;
@@ -240,9 +240,9 @@ DeltaUK_R=diff(UK_R);
 %% 3.c
 
 %Regressions
-X=[deltaUK.p(1:end-1),deltaUK.d(1:end-1),UK_R(1:end-1)];
-regUK_p=fitlm(X,deltaUK.p(2:end));
-regUK_d=fitlm(X,deltaUK.d(2:end));
+X=[deltaUK_p(1:end-1),deltaUK_d(1:end-1),UK_R(1:end-1)];
+regUK_p=fitlm(X,deltaUK_p(2:end));
+regUK_d=fitlm(X,deltaUK_d(2:end));
 
 CoefUK_p=table2array(regUK_p.Coefficients(1:end,1));
 CoefUK_d=table2array(regUK_d.Coefficients(1:end,1));
