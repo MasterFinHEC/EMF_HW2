@@ -60,7 +60,7 @@ sds=zeros(N,1);
 
 disp('Run regression')
 for n=1:N
-    [tStat,beta,sd,~]=regression(SimPrices(1:end-1,n),Delta_SimP(:,n));
+    [~,tStat,beta,sd,~]=regression(SimPrices(1:end-1,n),Delta_SimP(:,n));
     tStat_betas(n)=tStat;
     betas(n)=beta;
     sds(n)=sd;
@@ -88,16 +88,16 @@ meantStat=mean(tStat_betas);
 %% 2.b Testing non-stationarity
 
 % Computing log-prices
-logUS=log(price(1:end-1,1));
-logUK=log(price(1:end-1,3));
+logUS=log(price(:,1));
+logUK=log(price(:,3));
 
-deltaUS_p=diff(log(price(:,1)));
-deltaUK_p=diff(log(price(:,3)));
+deltaUS_p=diff(logUS);
+deltaUK_p=diff(logUK);
 
 disp('Run p regression')
-% Doing regression for prices
-OLS_US_p=fitlm(logUS,deltaUS_p);
-OLS_UK_p=fitlm(logUK,deltaUK_p);
+%% Doing regression for prices
+OLS_US_p=fitlm(logUS(1:end-1),deltaUS_p);
+OLS_UK_p=fitlm(logUK(1:end-1),deltaUK_p);
 
 US_Est_p=table2array(OLS_US_p.Coefficients(2,1));
 UK_Est_p=table2array(OLS_UK_p.Coefficients(2,1));
@@ -114,12 +114,12 @@ DivUK=price(:,3).*(price(:,4)./100)./12;
 DivlogUS=log(DivUS);
 DivlogUK=log(DivUK);
 
-deltaUS_d=diff(log(DivUS));
-deltaUK_d=diff(log(DivUK));
+deltaUS_d=diff(DivlogUS);
+deltaUK_d=diff(DivlogUK);
 
 disp('Run d regression')
 
-% Doing a regression
+%% Doing a regression
 OLS_US_d=fitlm(DivlogUS(1:end-1),deltaUS_d);
 OLS_UK_d=fitlm(DivlogUK(1:end-1),deltaUK_d);
 
@@ -189,7 +189,7 @@ Res=zeros(T,N);
 
 disp('Run regression')
 for n=1:N
-    [~,~,~,residual]=regression(SimD(:,n),SimP(:,n));
+    [~,~,~,~,residual]=regression(SimD(:,n),SimP(:,n));
     Res(:,n)=residual;
 end
 
@@ -201,7 +201,7 @@ Delta_R=diff(Res);
 
 disp('Run regression')
 for n=1:N
-    [tStat,~,~,~]=regression(Res(1:end-1,n),Delta_R(:,n));
+    [~,tStat,~,~,~]=regression(Res(1:end-1,n),Delta_R(:,n));
     tStat_R(n)=tStat;
 end
 
@@ -225,8 +225,14 @@ meantStatR=mean(tStat_R);
 %% 3.b
 %1 Estimating regression on US and UK market
 
-[~,~,~,US_R]=regression(DivlogUS,logUS);
-[~,~,~,UK_R]=regression(DivlogUK,logUK);
+[interceptUS,~,betaUS,~,US_R]=regression(DivlogUS,logUS);
+[interceptUK,~,betaUK,~,UK_R]=regression(DivlogUK,logUK);
+
+stat3b=[interceptUS,betaUS;interceptUK,betaUK];
+stat3b=array2table(stat3b,'VariableNames',{'a','b'},'RowNames',{'US','UK'});
+filename = 'Results/stat3b.xlsx';
+writetable(stat3b,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
+%% 3.c
 
 %2
 
@@ -234,9 +240,12 @@ DeltaUS_R=diff(US_R);
 DeltaUK_R=diff(UK_R);
 
 % Regressions
-[tStatUS_R,betaUS_R,sdUS_R,~]=regression(US_R(1:end-1),DeltaUS_R);
-[tStatUK_R,betaUK_R,sdUK_R,~]=regression(UK_R(1:end-1),DeltaUK_R);
-
+[~,tStatUS_R,betaUS_R,sdUS_R,~]=regression(US_R(1:end-1),DeltaUS_R);
+[~,tStatUK_R,betaUK_R,sdUK_R,~]=regression(UK_R(1:end-1),DeltaUK_R);
+tStatR=[tStatUS_R,tStatUK_R];
+tStatR=array2table(tStatR,'VariableNames',{'US','UK'},'RowNames',{'tStat'});
+filename = 'Results/tStatR.xlsx';
+writetable(tStatR,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
 %% 3.c
 
 %Regressions

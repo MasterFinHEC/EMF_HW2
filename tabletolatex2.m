@@ -13,3 +13,6 @@ table2latex(Power_of_test,'LatexTable\Power_of_test.tex')
 table2latex(tStat_data,'LatexTable\tStat_data.tex')
 table2latex(CriticalValuesR,'LatexTable\CriticalValuesR.tex')
 table2latex(Coefficients,'LatexTable\Coefficients.tex')
+%%
+table2latex(tStatR,'LatexTable\tStatR.tex')
+table2latex(stat3b,'LatexTable\stat3b.tex')
