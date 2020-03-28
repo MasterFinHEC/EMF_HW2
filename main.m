@@ -8,51 +8,38 @@
 
 close all
 clc
+
+%Setting the current directory
+cd('C:\Users\Benjamin\OneDrive\Documents\GitHub\EMF_HW2');
+
 %import KevinShepperd Toolbox
-cd('C:\Users\41797\Desktop\UNIL-Master\EMF\Homework2');
-addpath(genpath('C:\Users\41797\Desktop\UNIL-Master\EMF\Homework2\mfe-toolbox-master'));
+addpath(genpath('C:\Users\Benjamin\OneDrive\1. HEC\Master\MScF 4.2\EMF\2020\Homeworks\KevinSheperdToolBox'));
 
-%% Setup the Import Options and import the data
-opts = spreadsheetImportOptions("NumVariables", 5);
+%Add the path of the functions library
+addpath(genpath('C:\Users\Benjamin\OneDrive\Documents\GitHub\EMF_HW2\Functions'));
 
-% Specify sheet and range
-opts.Sheet = "Sheet1";
-opts.DataRange = "A2:E362";
+%Add the path to the output folders
+addpath(genpath('C:\Users\Benjamin\OneDrive\Documents\GitHub\EMF_HW2\Output'));
 
-% Specify column names and types
-opts.VariableNames = ["date", "TOTMKUS(PI)", "TOTMKUS(DY)", "TOTMKUK(PI)", "TOTMKUK(DY)"];
-opts.VariableTypes = ["datetime", "double", "double", "double", "double"];
-
-% Specify variable properties
-opts = setvaropts(opts, "date", "InputFormat", "");
-
-% Import the data
-HM2DATA = readtable("C:\Users\41797\Desktop\UNIL-Master\EMF\Homework2\DATA_HW2.xlsx", opts, "UseExcel", false);
-clear opts
-
-%% Creating the vectors we will use
-
-txt = HM2DATA.Properties.VariableNames; %Extract the Variables Names
-names = txt(2:end); %Vector of Names (Mainly used for plots)
-price = table2array(HM2DATA(2:end,2:end)); %Take out the date from the matrix of price
-date = datetime(table2array(HM2DATA(2:end,1))); %Vector of date
+%% Setup the Import Optionsimport and import the data
+DataImport;
 
 %% 2. Stationarity test
 
 %% 2.a Computing critical values
 
-% 1.
+% 1. Simulating a matrix of error
 N=10000;
 T=size(date,1);
 SimPrices=zeros(T,N);
 eps_t=normrnd(0,1,[T,N]);
 
-%% 2.
+%% 2. Computing the vector of prices
 SimPrices(2:end,:)=cumsum(eps_t(2:end,:),1);
 
 %% 3.
-% Estimate AR(1) model under alternative hyp.
 
+% Estimate AR(1) model under alternative hyp.
 Delta_SimP=diff(SimPrices);
 tStat_betas=zeros(N,1);
 betas=zeros(N,1);
@@ -78,7 +65,7 @@ CriticalValue_5=quantile(tStat_betas,0.05);
 CriticalValue_10=quantile(tStat_betas,0.1);
 CriticalValues=[CriticalValue_1,CriticalValue_5,CriticalValue_10];
 CriticalValues=array2table(CriticalValues,'VariableNames',{'One','Five','Ten'},'RowNames',{'CriticalValues'});
-filename = 'Results/CriticalValues.xlsx';
+filename = 'Output/Results/CriticalValues.xlsx';
 writetable(CriticalValues,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
 
 
@@ -87,6 +74,7 @@ meantStat=mean(tStat_betas);
 
 %% 2.b Testing non-stationarity
 
+%% Doing regression for prices
 % Computing log-prices
 logUS=log(price(:,1));
 logUK=log(price(:,3));
@@ -94,8 +82,10 @@ logUK=log(price(:,3));
 deltaUS_p=diff(logUS);
 deltaUK_p=diff(logUK);
 
-disp('Run p regression')
-%% Doing regression for prices
+% Doing the regression
+
+disp('Run prices regression')
+
 OLS_US_p=fitlm(logUS(1:end-1),deltaUS_p);
 OLS_UK_p=fitlm(logUK(1:end-1),deltaUK_p);
 
@@ -104,7 +94,7 @@ UK_Est_p=table2array(OLS_UK_p.Coefficients(2,1));
 US_tStat_p=table2array(OLS_US_p.Coefficients(2,3));
 UK_tStat_p=table2array(OLS_UK_p.Coefficients(2,3));
 
-%% Wee compute the same for the dividends
+%% Doing regression for Dividends
 %Computing dividends first
 
 DivUS=price(:,1).*(price(:,2)./100)./12;
@@ -117,9 +107,9 @@ DivlogUK=log(DivUK);
 deltaUS_d=diff(DivlogUS);
 deltaUK_d=diff(DivlogUK);
 
-disp('Run d regression')
+disp('Run dividends regression')
 
-%% Doing a regression
+% Doing the regression
 OLS_US_d=fitlm(DivlogUS(1:end-1),deltaUS_d);
 OLS_UK_d=fitlm(DivlogUK(1:end-1),deltaUK_d);
 
@@ -131,7 +121,7 @@ UK_tStat_d=table2array(OLS_UK_d.Coefficients(2,3));
 % Create a table with the results
 tStat_data=[US_tStat_p,US_tStat_d,UK_tStat_p,UK_tStat_d];
 tStat_data=array2table(tStat_data,'VariableNames',{'US Price','US Dividend','UK Price','UK Dividend'},'RowNames',{'tStat'});
-filename = 'Results/tStat_data.xlsx';
+filename = 'Output/Results/tStat_data.xlsx';
 writetable(tStat_data,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
 
 
@@ -163,7 +153,7 @@ Power_of_test_8 = nnz(x3)/N;
 
 Power_of_test=[Power_of_test_360,Power_of_test_368,Power_of_test_100,Power_of_test_8];
 Power_of_test=array2table(Power_of_test,'VariableNames',{'360','368','100','0.8'},'RowNames',{'PowerOfTest'});
-filename = 'Results/PowerOfTest.xlsx';
+filename = 'Output/Results/PowerOfTest.xlsx';
 writetable(Power_of_test,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
 
 %% 3. Cointegration test
@@ -216,7 +206,7 @@ CriticalValueR_5=quantile(tStat_R,0.05);
 CriticalValueR_10=quantile(tStat_R,0.1);
 CriticalValuesR=[CriticalValueR_1,CriticalValueR_5,CriticalValueR_10];
 CriticalValuesR=array2table(CriticalValuesR,'VariableNames',{'One','Five','Ten'},'RowNames',{'CriticalValues'});
-filename = 'Results/CriticalValuesR.xlsx';
+filename = 'Output/Results/CriticalValuesR.xlsx';
 writetable(CriticalValuesR,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
 
 %% Mean of tStatR
@@ -230,7 +220,7 @@ meantStatR=mean(tStat_R);
 
 stat3b=[interceptUS,betaUS;interceptUK,betaUK];
 stat3b=array2table(stat3b,'VariableNames',{'a','b'},'RowNames',{'US','UK'});
-filename = 'Results/stat3b.xlsx';
+filename = 'Output/Results/stat3b.xlsx';
 writetable(stat3b,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
 %% 3.c
 
@@ -244,7 +234,7 @@ DeltaUK_R=diff(UK_R);
 [~,tStatUK_R,betaUK_R,sdUK_R,~]=regression(UK_R(1:end-1),DeltaUK_R);
 tStatR=[tStatUS_R,tStatUK_R];
 tStatR=array2table(tStatR,'VariableNames',{'US','UK'},'RowNames',{'tStat'});
-filename = 'Results/tStatR.xlsx';
+filename = 'Output/Results/tStatR.xlsx';
 writetable(tStatR,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
 %% 3.c
 
@@ -258,10 +248,11 @@ CoefUK_d=table2array(regUK_d.Coefficients(1:end,1));
 
 Coefficients=[transpose(CoefUK_p);transpose(CoefUK_d)];
 Coefficients=array2table(Coefficients,'VariableNames',{'Intercept','Coef delta p','Coef delta d','Coef res'},'RowNames',{'Prices','Dividends'});
-filename = 'Results/Coefficients.xlsx';
+filename = 'Output/Results/Coefficients.xlsx';
 writetable(Coefficients,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
+
 %% Plots
 disp('plotting')
-Plots
+Plots;
 %% Latex
-tabletolatex2
+tabletolatex2;
