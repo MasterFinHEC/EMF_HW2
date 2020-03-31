@@ -1,0 +1,327 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% EMPIRICAL METHODS FOR FINANCE
+% Homework II
+%
+% Benjamin Souane, Antoine-Michel Alexeev and Julien Bisch
+% Due Date: 2 April 2020
+%==========================================================================
+
+close all
+clc
+%import KevinShepperd Toolbox
+cd('C:\Users\41797\Documents\GitHub\EMF_HW2');
+addpath(genpath('C:\Users\41797\Documents\GitHub\EMF_HW2\mfe-toolbox-master'));
+
+%% Setup the Import Options and import the data
+opts = spreadsheetImportOptions("NumVariables", 5);
+
+% Specify sheet and range
+opts.Sheet = "Sheet1";
+opts.DataRange = "A2:E362";
+
+% Specify column names and types
+opts.VariableNames = ["date", "TOTMKUS(PI)", "TOTMKUS(DY)", "TOTMKUK(PI)", "TOTMKUK(DY)"];
+opts.VariableTypes = ["datetime", "double", "double", "double", "double"];
+
+% Specify variable properties
+opts = setvaropts(opts, "date", "InputFormat", "");
+
+% Import the data
+HM2DATA = readtable("C:\Users\41797\Documents\GitHub\EMF_HW2\DATA_HW2.xlsx", opts, "UseExcel", false);
+clear opts
+
+%% Creating the vectors we will use
+txt = HM2DATA.Properties.VariableNames; %Extract the Variables Names
+names = txt(2:end); %Vector of Names (Mainly used for plots)
+price = table2array(HM2DATA(2:end,2:end)); %Take out the date from the matrix of price
+date = datetime(table2array(HM2DATA(2:end,1))); %Vector of date
+
+%% Setting the data
+N=10000; % Number of simulations
+T=size(date,1); % Number of days
+t=100;   % Number of days for testing
+
+% Computing log-prices
+logUS=log(price(:,1));
+logUK=log(price(:,3));
+
+% First difference for prices
+deltaUS_p=diff(logUS);
+deltaUK_p=diff(logUK);
+
+%Computing dividends first
+DivUS=price(:,1).*(price(:,2)./100)./12;
+DivUK=price(:,3).*(price(:,4)./100)./12;
+
+% Computing log-dividends 
+DivlogUS=log(DivUS);
+DivlogUK=log(DivUK);
+
+% First difference for dividends
+deltaUS_d=diff(DivlogUS);
+deltaUK_d=diff(DivlogUK);
+
+%% 2. Stationarity test
+%% 2.a Computing critical values
+
+% 1.
+%Simulating time series of errors
+SimPrices=zeros(T,N);
+eps_t=normrnd(0,1,[T,N]);
+
+%Simulating time series of errors for testing
+TestPrices=zeros(t,N);
+Testeps=normrnd(0,1,[t,N]);
+
+% 2.
+%Computing time series of stock prices 
+SimPrices(2:end,:)=cumsum(eps_t(2:end,:),1);
+TestPrices(2:end,:)=cumsum(Testeps(2:end,:),1);
+
+% 3.
+% Estimate AR(1) model 
+
+Delta_SimP=diff(SimPrices); %First differences for simulated stock prices 
+
+tStat_betas=zeros(N,1);
+betas=zeros(N,1);
+sds=zeros(N,1);
+mus=zeros(N,1);
+
+TestDelta_Sim=diff(TestPrices); %First differences for simulated stock prices for test
+TesttStat_betas=zeros(N,1);
+
+% Run the N regressions
+for n=1:N
+    [intercept,tStat,beta,~]=regression(SimPrices(1:end-1,n),Delta_SimP(:,n));
+    tStat_betas(n)=tStat;
+    betas(n)=beta;
+    mus(n)=intercept;
+end
+
+% Computing test for t=100
+for n=1:N
+    [~,tStat,~,~,~]=regression(TestPrices(1:end-1,n),TestDelta_Sim(:,n));
+    TesttStat_betas(n)=tStat;
+end
+
+% 4.
+%Sort the t-stats
+StStat_betas=sort(tStat_betas); 
+TeststStat_beta=sort(TesttStat_betas);
+
+% Mean of t-stats and of the intercept
+meantStat=mean(tStat_betas);
+meanmus=mean(mus);
+
+% 5.
+% Computing quantiles
+CriticalValue_1=quantile(tStat_betas,0.01);
+CriticalValue_5=quantile(tStat_betas,0.05);
+CriticalValue_10=quantile(tStat_betas,0.1);
+CriticalValues=[CriticalValue_1,CriticalValue_5,CriticalValue_10];
+CriticalValues=array2table(CriticalValues,'VariableNames',{'One','Five','Ten'},'RowNames',{'CriticalValues'});
+filename = 'Results/CriticalValues.xlsx';
+writetable(CriticalValues,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
+
+% Computing quantiles for t=100
+TCriticalValue_1=quantile(TesttStat_betas,0.01);
+TCriticalValue_5=quantile(TesttStat_betas,0.05);
+TCriticalValue_10=quantile(TesttStat_betas,0.1);
+TCriticalValues=[TCriticalValue_1,TCriticalValue_5,TCriticalValue_10];
+TCriticalValues=array2table(TCriticalValues,'VariableNames',{'One','Five','Ten'},'RowNames',{'CriticalValues'});
+filename = 'Results/TestCriticalValues.xlsx';
+writetable(TCriticalValues,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
+
+%% 2.b Testing non-stationarity
+% Doing regressions for data prices
+OLS_US_p=fitlm(logUS(1:end-1),deltaUS_p);
+OLS_UK_p=fitlm(logUK(1:end-1),deltaUK_p);
+
+US_Est_p=table2array(OLS_US_p.Coefficients(2,1));
+UK_Est_p=table2array(OLS_UK_p.Coefficients(2,1));
+US_tStat_p=table2array(OLS_US_p.Coefficients(2,3));
+UK_tStat_p=table2array(OLS_UK_p.Coefficients(2,3));
+
+% Doing regressions for data dividends
+OLS_US_d=fitlm(DivlogUS(1:end-1),deltaUS_d);
+OLS_UK_d=fitlm(DivlogUK(1:end-1),deltaUK_d);
+
+US_Est_d=table2array(OLS_US_d.Coefficients(2,1));
+UK_Est_d=table2array(OLS_UK_d.Coefficients(2,1));
+US_tStat_d=table2array(OLS_US_d.Coefficients(2,3));
+UK_tStat_d=table2array(OLS_UK_d.Coefficients(2,3));
+
+% Create a table with the results
+tStat_data=[US_tStat_p,US_tStat_d,UK_tStat_p,UK_tStat_d];
+tStat_data=array2table(tStat_data,'VariableNames',{'US Price','US Dividend','UK Price','UK Dividend'},'RowNames',{'tStat'});
+filename = 'Results/tStat_data.xlsx';
+writetable(tStat_data,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
+
+%% 2.c Power of the test
+%Simulates AR(1) processes for different days and phi's
+[tStat_Sim360]=ARSimulation(T,N,0.96);
+[tStat_Sim368]=ARSimulation(T,N,0.8);
+[tStat_Sim100]=ARSimulation(t,N,0.96);
+[tStat_Sim8]=ARSimulation(t,N,0.8);
+
+%Define vectors of binary variables for test decision
+x = (tStat_Sim360 <= CriticalValue_5 | tStat_Sim360 >= abs(CriticalValue_5)); 
+x1 = (tStat_Sim368 <= CriticalValue_5 | tStat_Sim368 >= abs(CriticalValue_5)); 
+x2 = (tStat_Sim100 <= CriticalValue_5 | tStat_Sim100 >= abs(CriticalValue_5)); 
+x3 = (tStat_Sim8 <= CriticalValue_5 | tStat_Sim8 >= abs(CriticalValue_5)); 
+
+%Computing power of tests
+Power_of_test_360 = nnz(x)/N;
+Power_of_test_368 = nnz(x1)/N;
+Power_of_test_100 = nnz(x2)/N;
+Power_of_test_8 = nnz(x3)/N;
+
+%Putting the results in a table
+Power_of_test=[Power_of_test_360,Power_of_test_368,Power_of_test_100,Power_of_test_8];
+Power_of_test=array2table(Power_of_test,'VariableNames',{'360','368','100','0.8'},'RowNames',{'PowerOfTest'});
+filename = 'Results/PowerOfTest.xlsx';
+writetable(Power_of_test,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
+
+%% 3. Cointegration test
+%% 3.a
+% 1.
+%Simulating time series of errors
+SimP=zeros(T,N);
+SimD=zeros(T,N);
+eps_1=normrnd(0,1,[T,N]);
+eps_2=normrnd(0,1,[T,N]);
+
+%Simulating time series of errors for testing
+TestP=zeros(t,N);
+TestD=zeros(t,N);
+Testeps_1=normrnd(0,1,[t,N]);
+Testeps_2=normrnd(0,1,[t,N]);
+
+% 2.
+%Computing time series of stock prices and dividends
+SimP(2:end,:)=cumsum(eps_1(2:end,:),1);
+SimD(2:end,:)=cumsum(eps_2(2:end,:),1);
+TestP(2:end,:)=cumsum(Testeps_1(2:end,:),1);
+TestD(2:end,:)=cumsum(Testeps_2(2:end,:),1);
+
+% 3.
+%Estimating the relation between the two time series 
+Res=zeros(T,N);
+TestRes=zeros(t,N);
+
+for n=1:N
+    [~,~,~,~,residual]=regression(SimD(:,n),SimP(:,n));
+    Res(:,n)=residual;
+end
+
+for n=1:N
+    [~,~,~,~,residual]=regression(TestD(:,n),TestP(:,n));
+    TestRes(:,n)=residual;
+end
+
+% 4
+% Estimate AR(1) model for residuals
+Delta_R=diff(Res); %First differences for residuals
+tStat_R=zeros(N,1);
+musR=zeros(N,1);
+
+TestDelta_R=diff(TestRes); %First differences for residuals for testing
+TesttStat_R=zeros(N,1);
+
+%Run the N regressions
+for n=1:N
+    [intercept,tStat,~,~,~]=regression(Res(1:end-1,n),Delta_R(:,n));
+    tStat_R(n)=tStat;
+    musR(n)=intercept;
+end
+
+%Run the regressions for testing
+for n=1:N
+    [~,tStat,~,~,~]=regression(TestRes(1:end-1,n),TestDelta_R(:,n));
+    TesttStat_R(n)=tStat;
+end
+
+% 5
+%Sort the t-stats
+StStat_R=sort(tStat_R);
+
+% Mean of t-stats and of the intercept
+meantStat_R=mean(tStat_R);
+meanmusR=mean(musR);
+
+% 6
+%Computing quantiles
+CriticalValueR_1=quantile(tStat_R,0.01);
+CriticalValueR_5=quantile(tStat_R,0.05);
+CriticalValueR_10=quantile(tStat_R,0.1);
+CriticalValuesR=[CriticalValueR_1,CriticalValueR_5,CriticalValueR_10];
+CriticalValuesR=array2table(CriticalValuesR,'VariableNames',{'One','Five','Ten'},'RowNames',{'CriticalValues'});
+filename = 'Results/CriticalValuesR.xlsx';
+writetable(CriticalValuesR,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
+
+%Computing quantiles for t=100
+TCriticalValueR_1=quantile(TesttStat_R,0.01);
+TCriticalValueR_5=quantile(TesttStat_R,0.05);
+TCriticalValueR_10=quantile(TesttStat_R,0.1);
+TCriticalValuesR=[TCriticalValueR_1,TCriticalValueR_5,TCriticalValueR_10];
+TCriticalValuesR=array2table(TCriticalValuesR,'VariableNames',{'One','Five','Ten'},'RowNames',{'CriticalValues'});
+filename = 'Results/TestCriticalValuesR.xlsx';
+writetable(TCriticalValuesR,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
+
+%% 3.b
+%1 Estimating regression on US and UK market
+
+regUSB = fitlm(DivlogUS,logUS);
+regUKB = fitlm(DivlogUK,logUK);
+interceptUS=regUSB.Coefficients.Estimate(1);
+interceptUK=regUKB.Coefficients.Estimate(1);
+betaUS=regUSB.Coefficients.Estimate(2);
+betaUK=regUKB.Coefficients.Estimate(2);
+tStatsUSB=regUSB.Coefficients.tStat;
+tStatsUKB=regUKB.Coefficients.tStat;
+US_R=table2array(regUSB.Residuals(:,1));
+UK_R=table2array(regUKB.Residuals(:,1));
+
+stat3b=[interceptUS,betaUS,interceptUK,betaUK;transpose(tStatsUSB),transpose(tStatsUKB)];
+stat3b=array2table(stat3b,'VariableNames',{'a US','b US','a UK','b UK'},'RowNames',{'Estimate','tStat'});
+filename = 'Results/stat3b.xlsx';
+writetable(stat3b,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
+
+%2
+
+DeltaUS_R=diff(US_R);
+DeltaUK_R=diff(UK_R);
+
+% Regressions
+[~,tStatUS_R,betaUS_R,sdUS_R,~]=regression(US_R(1:end-1),DeltaUS_R);
+[~,tStatUK_R,betaUK_R,sdUK_R,~]=regression(UK_R(1:end-1),DeltaUK_R);
+tStatR=[tStatUS_R,tStatUK_R];
+tStatR=array2table(tStatR,'VariableNames',{'US','UK'},'RowNames',{'tStat'});
+filename = 'Results/tStatR.xlsx';
+writetable(tStatR,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
+
+% DDM
+DDMUS=interceptUS+betaUS*DivlogUS;
+DDMUK=interceptUK+betaUK*DivlogUK;
+%% 3.c
+
+%Regressions
+X=[deltaUK_p(1:end-1),deltaUK_d(1:end-1),UK_R(2:end-1)];
+regUK_p=fitlm(X,deltaUK_p(2:end));
+regUK_d=fitlm(X,deltaUK_d(2:end));
+
+CoefUK_p=table2array(regUK_p.Coefficients(1:end,1));
+CoefUK_d=table2array(regUK_d.Coefficients(1:end,1));
+pValueUK_p=table2array(regUK_p.Coefficients(1:end,4));
+pValueUK_d=table2array(regUK_d.Coefficients(1:end,4));
+
+Coefficients=[transpose(CoefUK_p);transpose(pValueUK_p);transpose(CoefUK_d);transpose(pValueUK_d)];
+Coefficients=array2table(Coefficients,'VariableNames',{'Intercept','Coef delta p','Coef delta d','Coef res'},'RowNames',{'Prices','p-value P','Dividends','p-value D'});
+filename = 'Results/Coefficients.xlsx';
+writetable(Coefficients,filename,'Sheet',1,'Range','D1','WriteRowNames',true)
+%% Plots
+disp('plotting')
+Plots
+%% Latex
+tabletolatex2
